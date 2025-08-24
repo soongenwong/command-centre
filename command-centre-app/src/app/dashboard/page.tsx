@@ -181,7 +181,7 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Welcome back, {session.user?.name?.split(' ')[0]}! 👋
           </h1>
-          <p className="text-gray-600">Here's your goal tracking overview for today.</p>
+          <p className="text-gray-600">Here&apos;s your goal tracking overview for today.</p>
         </div>
 
         {/* Stats Cards */}

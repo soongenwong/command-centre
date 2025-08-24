@@ -20,7 +20,7 @@ export function calculateStreak(dates: Date[]): number {
   today.setHours(0, 0, 0, 0)
   
   let streak = 0
-  let currentDate = new Date(today)
+  const currentDate = new Date(today)
   
   for (const date of sortedDates) {
     const checkDate = new Date(date)
