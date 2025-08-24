@@ -13,24 +13,31 @@ cp .env.local.template .env.local
 ```
 
 Then edit `.env.local` with your actual values:
-- Get Google OAuth credentials from [Google Cloud Console](https://console.cloud.google.com/)
-- Generate a secure NextAuth secret (you can use: `openssl rand -base64 32`)
+- Get Supabase credentials from [Supabase Dashboard](https://supabase.com/dashboard)
 
-### 3. Google OAuth Setup
+### 3. Supabase Setup
+1. Go to [Supabase](https://supabase.com) and create a new project
+2. Go to Settings > API to get your project URL and anon key
+3. Go to Authentication > Providers > Google:
+   - Enable Google provider
+   - Add your Google OAuth credentials from [Google Cloud Console](https://console.cloud.google.com/)
+   - Add authorized redirect URIs:
+     - Development: `http://localhost:3000/auth/callback`
+     - Production: `https://yourdomain.com/auth/callback`
+
+### 4. Google OAuth Setup
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project or select existing
 3. Enable Google+ API
 4. Create OAuth 2.0 credentials
-5. Add authorized redirect URIs:
-   - Development: `http://localhost:3000/api/auth/callback/google`
-   - Production: `https://yourdomain.com/api/auth/callback/google`
+5. Add authorized redirect URIs in Supabase (step 3 above)
 
-### 4. Run Development Server
+### 5. Run Development Server
 ```bash
 npm run dev
 ```
 
-### 5. Build for Production
+### 6. Build for Production
 ```bash
 npm run build
 npm start

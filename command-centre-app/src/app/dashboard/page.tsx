@@ -1,6 +1,5 @@
 'use client'
 
-import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -9,6 +8,7 @@ import { Progress } from '@/components/ui/progress'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Target, Plus, CheckCircle, TrendingUp, Calendar, LogOut, Settings, User } from 'lucide-react'
 import { formatDate, calculateStreak } from '@/lib/utils'
+import { useAuth } from '@/components/providers/auth-provider'
 
 interface Goal {
   id: string
@@ -28,21 +28,21 @@ interface ActionStep {
 }
 
 export default function Dashboard() {
-  const { data: session, status } = useSession()
+  const { user, loading, signOut } = useAuth()
   const router = useRouter()
   const [goals, setGoals] = useState<Goal[]>([])
   const [isCreateGoalOpen, setIsCreateGoalOpen] = useState(false)
   const [newGoal, setNewGoal] = useState({ title: '', description: '', targetDate: '' })
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (!loading && !user) {
       router.push('/auth/signin')
     }
-  }, [status, router])
+  }, [user, loading, router])
 
   // Mock data for demo purposes
   useEffect(() => {
-    if (session) {
+    if (user) {
       setGoals([
         {
           id: '1',
@@ -83,7 +83,7 @@ export default function Dashboard() {
         }
       ])
     }
-  }, [session])
+  }, [user])
 
   const handleCreateGoal = () => {
     if (newGoal.title && newGoal.description && newGoal.targetDate) {
@@ -129,7 +129,7 @@ export default function Dashboard() {
     }))
   }
 
-  if (status === 'loading') {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-white to-orange-50 flex items-center justify-center">
         <div className="text-center">
@@ -140,7 +140,7 @@ export default function Dashboard() {
     )
   }
 
-  if (!session) {
+  if (!user) {
     return null
   }
 
@@ -163,7 +163,7 @@ export default function Dashboard() {
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <User className="h-5 w-5 text-gray-600" />
-              <span className="text-sm text-gray-600">{session.user?.name}</span>
+              <span className="text-sm text-gray-600">{user?.user_metadata?.full_name || user?.email}</span>
             </div>
             <Button variant="ghost" size="icon">
               <Settings className="h-5 w-5" />
@@ -179,7 +179,7 @@ export default function Dashboard() {
         {/* Welcome Section */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Welcome back, {session.user?.name?.split(' ')[0]}! 👋
+            Welcome back, {user?.user_metadata?.full_name?.split(' ')[0] || 'User'}! 👋
           </h1>
           <p className="text-gray-600">Here&apos;s your goal tracking overview for today.</p>
         </div>

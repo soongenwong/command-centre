@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Target } from 'lucide-react'
 import Link from 'next/link'
+import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/components/providers/auth-provider'
 
-export default function SignUp() {
+export default function SignInForm() {
   const router = useRouter()
   const { user, loading } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
@@ -19,29 +20,21 @@ export default function SignUp() {
     }
   }, [user, loading, router])
 
-  const handleGoogleSignUp = async () => {
-    if (typeof window === 'undefined') return
-    
+  const handleGoogleSignIn = async () => {
     setIsLoading(true)
     try {
-      const { supabase } = await import('@/lib/supabaseClient')
-      if (!supabase) {
-        alert('Authentication service not configured. Please check your environment variables.')
-        return
-      }
-      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`
+          redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/dashboard`
         }
       })
       if (error) {
-        console.error('Sign up error:', error)
-        alert('Error signing up: ' + error.message)
+        console.error('Sign in error:', error)
+        alert('Error signing in: ' + error.message)
       }
     } catch (error) {
-      console.error('Sign up error:', error)
+      console.error('Sign in error:', error)
     } finally {
       setIsLoading(false)
     }
@@ -70,36 +63,25 @@ export default function SignUp() {
 
         <Card className="border-orange-100">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Get Started</CardTitle>
+            <CardTitle className="text-2xl">Welcome Back</CardTitle>
             <CardDescription>
-              Create your account and start tracking your goals today
+              Sign in to your account to continue tracking your goals
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Button
-              onClick={handleGoogleSignUp}
+              onClick={handleGoogleSignIn}
               disabled={isLoading}
               className="w-full"
               size="lg"
             >
-              {isLoading ? 'Creating account...' : 'Sign up with Google'}
+              {isLoading ? 'Signing in...' : 'Continue with Google'}
             </Button>
             
             <div className="text-center text-sm text-gray-600">
-              Already have an account?{' '}
-              <Link href="/auth/signin" className="text-orange-600 hover:underline">
-                Sign in
-              </Link>
-            </div>
-
-            <div className="text-xs text-gray-500 text-center mt-4">
-              By signing up, you agree to our{' '}
-              <Link href="/terms" className="text-orange-600 hover:underline">
-                Terms of Service
-              </Link>{' '}
-              and{' '}
-              <Link href="/privacy" className="text-orange-600 hover:underline">
-                Privacy Policy
+              Don&apos;t have an account?{' '}
+              <Link href="/auth/signup" className="text-orange-600 hover:underline">
+                Sign up
               </Link>
             </div>
           </CardContent>

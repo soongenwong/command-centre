@@ -19,7 +19,7 @@ A modern, orange and white themed Next.js 14 template designed for building goal
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS for utility-first and fully responsive design
 - **UI Components**: Custom-built components with Radix UI primitives
-- **Authentication**: NextAuth.js with Google OAuth
+- **Authentication**: Supabase Authentication with Google OAuth
 
 ### Visually Appealing Design
 - Clean and vibrant orange and white color scheme
@@ -27,7 +27,7 @@ A modern, orange and white themed Next.js 14 template designed for building goal
 - Modern UI components with smooth animations and transitions
 
 ### Authentication
-- Secure user authentication powered by NextAuth.js
+- Secure user authentication powered by Supabase
 - Integrated Sign up/Sign in with Google for frictionless onboarding
 - Protected routes ensuring only authenticated users access the dashboard
 
@@ -43,6 +43,7 @@ A modern, orange and white themed Next.js 14 template designed for building goal
 ### Prerequisites
 - Node.js 18+ 
 - npm or yarn
+- Supabase account (free tier available)
 - Google Cloud Console account (for OAuth)
 
 ### 1. Clone the Repository
@@ -66,22 +67,27 @@ cp .env.example .env.local
 
 2. Configure your environment variables in `.env.local`:
 ```env
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your-nextauth-secret-here
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
-### 4. Google OAuth Setup
+### 4. Supabase Setup
+1. Go to [Supabase](https://supabase.com) and create a new project
+2. Go to Settings > API to get your project URL and anon key
+3. Go to Authentication > Providers > Google and enable Google provider
+4. Add your Google OAuth credentials from Google Cloud Console
+5. Configure authorized redirect URIs:
+   - `http://localhost:3000/auth/callback` (development)
+   - `https://yourdomain.com/auth/callback` (production)
+
+### 5. Google OAuth Setup
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project or select an existing one
 3. Enable the Google+ API
 4. Create OAuth 2.0 credentials
-5. Add authorized redirect URIs:
-   - `http://localhost:3000/api/auth/callback/google` (development)
-   - `https://yourdomain.com/api/auth/callback/google` (production)
+5. Use the redirect URIs from your Supabase setup
 
-### 5. Run the Development Server
+### 6. Run the Development Server
 ```bash
 npm run dev
 # or
@@ -95,16 +101,16 @@ Open [http://localhost:3000](http://localhost:3000) to see the application.
 ```
 src/
 ├── app/
-│   ├── api/auth/[...nextauth]/     # NextAuth.js API routes
 │   ├── auth/                      # Authentication pages
 │   ├── dashboard/                 # Main dashboard page
 │   ├── globals.css               # Global styles
 │   ├── layout.tsx               # Root layout
 │   └── page.tsx                # Landing page
 ├── components/
-│   ├── providers/              # Context providers
+│   ├── providers/              # Context providers (Auth)
 │   └── ui/                    # Reusable UI components
 └── lib/
+    ├── supabaseClient.ts     # Supabase client configuration
     └── utils.ts              # Utility functions
 ```
 
@@ -164,7 +170,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Built with [Next.js](https://nextjs.org/)
 - UI components inspired by [shadcn/ui](https://ui.shadcn.com/)
 - Icons by [Lucide](https://lucide.dev/)
-- Authentication by [NextAuth.js](https://next-auth.js.org/)
+- Authentication by [Supabase](https://supabase.com/)
 
 ---
 

@@ -1,36 +1,61 @@
 'use client'
 
-import { signIn, getSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Target } from 'lucide-react'
 import Link from 'next/link'
+import { useAuth } from '@/components/providers/auth-provider'
 
 export default function SignIn() {
   const router = useRouter()
+  const { user, loading } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    const checkSession = async () => {
-      const session = await getSession()
-      if (session) {
-        router.push('/dashboard')
-      }
+    if (!loading && user) {
+      router.push('/dashboard')
     }
-    checkSession()
-  }, [router])
+  }, [user, loading, router])
 
   const handleGoogleSignIn = async () => {
+    if (typeof window === 'undefined') return
+    
     setIsLoading(true)
     try {
-      await signIn('google', { callbackUrl: '/dashboard' })
+      const { supabase } = await import('@/lib/supabaseClient')
+      if (!supabase) {
+        alert('Authentication service not configured. Please check your environment variables.')
+        return
+      }
+      
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`
+        }
+      })
+      if (error) {
+        console.error('Sign in error:', error)
+        alert('Error signing in: ' + error.message)
+      }
     } catch (error) {
       console.error('Sign in error:', error)
     } finally {
       setIsLoading(false)
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-white to-orange-50 flex items-center justify-center">
+        <div className="text-center">
+          <Target className="h-12 w-12 text-orange-600 mx-auto mb-4 animate-spin" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
