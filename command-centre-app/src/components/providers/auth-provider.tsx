@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react'
 import { User, onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth'
+import { useRouter } from 'next/navigation'
 import { auth } from '@/lib/firebase'
 
 interface AuthContextType {
@@ -31,6 +32,7 @@ export default function AuthProvider({
 }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const router = useRouter()
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -44,6 +46,8 @@ export default function AuthProvider({
   const signOut = async () => {
     try {
       await firebaseSignOut(auth)
+      // Redirect to home page after successful sign out
+      router.push('/')
     } catch (error) {
       console.error('Error signing out:', error)
     }
