@@ -7,6 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Target } from 'lucide-react'
 import Link from 'next/link'
 import { useAuth } from '@/components/providers/auth-provider'
+import SignInForm from '@/components/auth/sign-in-form'
+import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth'
+import { auth } from '@/lib/firebase'
 
 export default function SignUp() {
   const router = useRouter()
@@ -20,28 +23,15 @@ export default function SignUp() {
   }, [user, loading, router])
 
   const handleGoogleSignUp = async () => {
-    if (typeof window === 'undefined') return
-    
     setIsLoading(true)
     try {
-      const { supabase } = await import('@/lib/supabaseClient')
-      if (!supabase) {
-        alert('Authentication service not configured. Please check your environment variables.')
-        return
-      }
-      
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`
-        }
-      })
-      if (error) {
-        console.error('Sign up error:', error)
-        alert('Error signing up: ' + error.message)
-      }
-    } catch (error) {
+      const provider = new GoogleAuthProvider()
+      await signInWithPopup(auth, provider)
+      // User will be redirected automatically via useEffect
+    } catch (error: unknown) {
       console.error('Sign up error:', error)
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred'
+      alert('Error signing up: ' + errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -84,6 +74,17 @@ export default function SignUp() {
             >
               {isLoading ? 'Creating account...' : 'Sign up with Google'}
             </Button>
+            
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-gray-500">Or continue with email</span>
+              </div>
+            </div>
+
+            <SignInForm mode="signup" />
             
             <div className="text-center text-sm text-gray-600">
               Already have an account?{' '}

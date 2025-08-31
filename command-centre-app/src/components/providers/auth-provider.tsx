@@ -1,19 +1,17 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState } from 'react'
-import { User, Session } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabaseClient'
+import { User, onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth'
+import { auth } from '@/lib/firebase'
 
 interface AuthContextType {
   user: User | null
-  session: Session | null
   loading: boolean
   signOut: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  session: null,
   loading: true,
   signOut: async () => {},
 })
@@ -32,69 +30,20 @@ export default function AuthProvider({
   children: React.ReactNode
 }) {
   const [user, setUser] = useState<User | null>(null)
-  const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    let mounted = true
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user)
+      setLoading(false)
+    })
 
-    // Get initial session
-    const getInitialSession = async () => {
-      try {
-        if (!supabase) {
-          if (mounted) {
-            setLoading(false)
-          }
-          return
-        }
-        
-        const { data: { session }, error } = await supabase.auth.getSession()
-        if (mounted) {
-          if (error) {
-            console.error('Error getting session:', error)
-          }
-          setSession(session)
-          setUser(session?.user ?? null)
-          setLoading(false)
-        }
-      } catch (error) {
-        console.error('Error in getInitialSession:', error)
-        if (mounted) {
-          setLoading(false)
-        }
-      }
-    }
-
-    getInitialSession()
-
-    // Listen for auth changes
-    if (supabase) {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(
-        async (event, session) => {
-          if (mounted) {
-            setSession(session)
-            setUser(session?.user ?? null)
-            setLoading(false)
-          }
-        }
-      )
-
-      return () => {
-        mounted = false
-        subscription?.unsubscribe()
-      }
-    }
-
-    return () => {
-      mounted = false
-    }
+    return () => unsubscribe()
   }, [])
 
   const signOut = async () => {
     try {
-      if (supabase) {
-        await supabase.auth.signOut()
-      }
+      await firebaseSignOut(auth)
     } catch (error) {
       console.error('Error signing out:', error)
     }
@@ -102,7 +51,6 @@ export default function AuthProvider({
 
   const value = {
     user,
-    session,
     loading,
     signOut,
   }

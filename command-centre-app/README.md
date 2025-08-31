@@ -9,7 +9,7 @@ A modern, orange and white themed Next.js 14 template designed for building goal
 ## 📸 Screenshots
 
 - Landing Page: Beautifully designed homepage with orange and white theme
-- Authentication: Seamless Google sign-in/sign-up modal
+- Authentication: Seamless Google sign-in/sign-up with email/password options
 - Dashboard: Comprehensive view of goals, action steps, and streaks
 
 ## ✨ Core Features
@@ -19,7 +19,8 @@ A modern, orange and white themed Next.js 14 template designed for building goal
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS for utility-first and fully responsive design
 - **UI Components**: Custom-built components with Radix UI primitives
-- **Authentication**: Supabase Authentication with Google OAuth
+- **Authentication**: Firebase Authentication with Google OAuth and Email/Password
+- **Database**: Cloud Firestore for real-time data storage
 
 ### Visually Appealing Design
 - Clean and vibrant orange and white color scheme
@@ -27,8 +28,9 @@ A modern, orange and white themed Next.js 14 template designed for building goal
 - Modern UI components with smooth animations and transitions
 
 ### Authentication
-- Secure user authentication powered by Supabase
+- Secure user authentication powered by Firebase
 - Integrated Sign up/Sign in with Google for frictionless onboarding
+- Email/password authentication option
 - Protected routes ensuring only authenticated users access the dashboard
 
 ### All-in-One Dashboard
@@ -37,13 +39,14 @@ A modern, orange and white themed Next.js 14 template designed for building goal
 - **Streak Tracker**: Visual component showing current and longest streaks
 - **Progress Analytics**: Visual progress indicators and completion percentages
 - **Centralized View**: All key metrics organized on a single dashboard
+- **Real-time Updates**: Changes sync instantly across all devices
 
 ## 🛠️ Installation & Setup
 
 ### Prerequisites
 - Node.js 18+ 
 - npm or yarn
-- Supabase account (free tier available)
+- Firebase account (free tier available)
 - Google Cloud Console account (for OAuth)
 
 ### 1. Clone the Repository
@@ -67,27 +70,18 @@ cp .env.example .env.local
 
 2. Configure your environment variables in `.env.local`:
 ```env
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project-id.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project-id.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
+NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
 ```
 
-### 4. Supabase Setup
-1. Go to [Supabase](https://supabase.com) and create a new project
-2. Go to Settings > API to get your project URL and anon key
-3. Go to Authentication > Providers > Google and enable Google provider
-4. Add your Google OAuth credentials from Google Cloud Console
-5. Configure authorized redirect URIs:
-   - `http://localhost:3000/auth/callback` (development)
-   - `https://yourdomain.com/auth/callback` (production)
+### 4. Firebase Setup
+Please see [FIREBASE_SETUP.md](FIREBASE_SETUP.md) for detailed Firebase configuration instructions.
 
-### 5. Google OAuth Setup
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select an existing one
-3. Enable the Google+ API
-4. Create OAuth 2.0 credentials
-5. Use the redirect URIs from your Supabase setup
-
-### 6. Run the Development Server
+### 5. Run the Development Server
 ```bash
 npm run dev
 # or
@@ -107,11 +101,13 @@ src/
 │   ├── layout.tsx               # Root layout
 │   └── page.tsx                # Landing page
 ├── components/
+│   ├── auth/                   # Authentication components
 │   ├── providers/              # Context providers (Auth)
 │   └── ui/                    # Reusable UI components
 └── lib/
-    ├── supabaseClient.ts     # Supabase client configuration
-    └── utils.ts              # Utility functions
+    ├── firebase.ts           # Firebase configuration
+    ├── goalsService.ts      # Firestore service layer
+    └── utils.ts             # Utility functions
 ```
 
 ## 🎨 Customization
@@ -134,7 +130,11 @@ All UI components are built with Tailwind CSS and can be easily customized by mo
 
 ## 🚀 Deployment
 
-### Vercel (Recommended)
+### Firebase Hosting (Recommended)
+1. Build your app: `npm run build`
+2. Deploy: `firebase deploy`
+
+### Vercel
 1. Push your code to GitHub
 2. Connect your repository to [Vercel](https://vercel.com)
 3. Configure environment variables in Vercel dashboard
@@ -149,13 +149,14 @@ The application can be deployed on any platform that supports Next.js:
 
 ## 🔮 Future Enhancements
 
-- [ ] Database integration with Prisma
-- [ ] Goal sharing and collaboration
+- [ ] Real-time collaboration features
+- [ ] Goal sharing and social features
 - [ ] Mobile app with React Native
 - [ ] Advanced analytics and reporting
 - [ ] Goal templates and recommendations
-- [ ] Notification system
+- [ ] Push notifications
 - [ ] Data export functionality
+- [ ] Offline support enhancements
 
 ## 🤝 Contributing
 
@@ -170,7 +171,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Built with [Next.js](https://nextjs.org/)
 - UI components inspired by [shadcn/ui](https://ui.shadcn.com/)
 - Icons by [Lucide](https://lucide.dev/)
-- Authentication by [Supabase](https://supabase.com/)
+- Authentication by [Firebase](https://firebase.google.com/)
+- Database by [Cloud Firestore](https://firebase.google.com/products/firestore)
 
 ---
 
