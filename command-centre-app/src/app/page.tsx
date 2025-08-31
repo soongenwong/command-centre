@@ -4,8 +4,11 @@ import { Button } from "@/components/ui/button"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Target, TrendingUp, Calendar, Users, CheckCircle, BarChart3 } from "lucide-react"
 import Link from "next/link"
+import { useAuth } from "@/components/providers/auth-provider"
 
 export default function Home() {
+  const { user, loading } = useAuth()
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-orange-50">
       {/* Navigation */}
@@ -19,12 +22,22 @@ export default function Home() {
             <Button variant="ghost" asChild>
               <Link href="#features">Features</Link>
             </Button>
-            <Button variant="outline" asChild>
-              <Link href="/auth/signin">Sign In</Link>
-            </Button>
-            <Button asChild>
-              <Link href="/auth/signup">Get Started</Link>
-            </Button>
+            {!loading && (
+              user ? (
+                <Button asChild>
+                  <Link href="/dashboard">Dashboard</Link>
+                </Button>
+              ) : (
+                <>
+                  <Button variant="outline" asChild>
+                    <Link href="/auth/signin">Sign In</Link>
+                  </Button>
+                  <Button asChild>
+                    <Link href="/auth/signup">Get Started</Link>
+                  </Button>
+                </>
+              )
+            )}
           </div>
         </div>
       </nav>
@@ -41,12 +54,22 @@ export default function Home() {
             Set targets, track progress, and maintain momentum with daily streaks.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="text-lg px-8 py-4" asChild>
-              <Link href="/auth/signup">Start Your Journey</Link>
-            </Button>
-            <Button size="lg" variant="outline" className="text-lg px-8 py-4" asChild>
-              <Link href="#demo">Watch Demo</Link>
-            </Button>
+            {!loading && (
+              user ? (
+                <Button size="lg" className="text-lg px-8 py-4" asChild>
+                  <Link href="/dashboard">Go to Dashboard</Link>
+                </Button>
+              ) : (
+                <>
+                  <Button size="lg" className="text-lg px-8 py-4" asChild>
+                    <Link href="/auth/signup">Start Your Journey</Link>
+                  </Button>
+                  <Button size="lg" variant="outline" className="text-lg px-8 py-4" asChild>
+                    <Link href="#demo">Watch Demo</Link>
+                  </Button>
+                </>
+              )
+            )}
           </div>
         </div>
       </section>
@@ -151,14 +174,21 @@ export default function Home() {
       <section className="py-20 bg-gradient-to-r from-orange-600 to-orange-500 text-white">
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Ready to Transform Your Goals?
+            {user ? "Continue Your Journey" : "Ready to Transform Your Goals?"}
           </h2>
           <p className="text-xl mb-8 opacity-90 max-w-2xl mx-auto">
-            Join thousands of users who have already achieved their dreams with Command Centre.
+            {user 
+              ? "Access your dashboard to track your progress and achieve your goals."
+              : "Join thousands of users who have already achieved their dreams with Command Centre."
+            }
           </p>
-          <Button size="lg" variant="secondary" className="text-lg px-8 py-4" asChild>
-            <Link href="/auth/signup">Get Started Today</Link>
-          </Button>
+          {!loading && (
+            <Button size="lg" variant="secondary" className="text-lg px-8 py-4" asChild>
+              <Link href={user ? "/dashboard" : "/auth/signup"}>
+                {user ? "Go to Dashboard" : "Get Started Today"}
+              </Link>
+            </Button>
+          )}
         </div>
       </section>
 
