@@ -135,7 +135,9 @@ export class GoalsService {
 
     try {
       const docRef = await addDoc(collection(db, 'goals'), {
-        ...goalData,
+        title: goalData.title,
+        description: goalData.description || null,
+        target_date: goalData.target_date || null,
         user_id: user.uid,
         progress: 0,
         created_at: serverTimestamp(),

@@ -173,9 +173,6 @@ export default function Dashboard() {
             <h1 className="text-2xl font-bold text-orange-600">Command Centre</h1>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">Welcome, {user.displayName || user.email}</span>
-              <Button variant="outline" onClick={signOut}>
-                Sign Out
-              </Button>
             </div>
           </div>
         </div>
