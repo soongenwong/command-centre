@@ -48,6 +48,7 @@ export default function Dashboard() {
     if (!newGoal.title.trim()) return
 
     try {
+      console.log('Creating goal with user:', user?.uid)
       const goal = await goalsService.createGoal({
         title: newGoal.title,
         description: newGoal.description,
@@ -59,6 +60,7 @@ export default function Dashboard() {
       setIsCreateGoalOpen(false)
     } catch (error) {
       console.error('Error creating goal:', error)
+      alert('Failed to create goal. Please check the console for details.')
     }
   }
 
