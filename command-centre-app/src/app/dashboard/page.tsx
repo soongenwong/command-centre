@@ -115,15 +115,37 @@ export default function Dashboard() {
     const goal = goals.find(g => g.id === goalId)
     const alreadyMarked = goal?.completed_dates?.some(cd => cd.completed_date.split('T')[0] === today)
 
+    // Optimistically update the UI immediately
+    setGoals(prev => prev.map(g => {
+      if (g.id === goalId) {
+        const updatedCompletedDates = alreadyMarked
+          ? g.completed_dates?.filter(cd => cd.completed_date.split('T')[0] !== today) || []
+          : [
+              ...(g.completed_dates || []),
+              {
+                id: `temp-${Date.now()}`, // Temporary ID
+                goal_id: goalId,
+                completed_date: today,
+                created_at: new Date().toISOString()
+              }
+            ]
+        return { ...g, completed_dates: updatedCompletedDates }
+      }
+      return g
+    }))
+
     try {
       if (alreadyMarked) {
         await goalsService.removeCompletedDate(goalId, today)
       } else {
         await goalsService.addCompletedDate(goalId, today)
       }
-      await loadGoals() // Reload to get updated data
+      // Reload in background to sync with server data
+      await loadGoals()
     } catch (error) {
       console.error('Error marking day:', error)
+      // Revert the optimistic update on error
+      await loadGoals()
     }
   }
 
@@ -151,7 +173,11 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-white flex items-center justify-center">
-        <div className="text-xl text-orange-600">Loading your goals...</div>
+        <div className="text-center">
+          <Target className="h-16 w-16 text-orange-600 mx-auto mb-4 animate-pulse" />
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Command Centre</h1>
+          <p className="text-gray-600">Loading your goals...</p>
+        </div>
       </div>
     )
   }
