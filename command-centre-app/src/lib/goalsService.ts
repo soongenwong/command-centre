@@ -9,7 +9,9 @@ import {
   where, 
   orderBy, 
   serverTimestamp,
-  Timestamp 
+  Timestamp,
+  onSnapshot,
+  type Unsubscribe 
 } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
 
@@ -67,6 +69,68 @@ const timestampToString = (timestamp: Timestamp | null): string => {
 }
 
 export class GoalsService {
+  // Real-time listener for goals with optimistic updates
+  subscribeToGoals(callback: (goals: Goal[]) => void): Unsubscribe {
+    const user = auth.currentUser
+    if (!user) throw new Error('User not authenticated')
+
+    const goalsQuery = query(
+      collection(db, 'goals'),
+      where('user_id', '==', user.uid),
+      orderBy('created_at', 'desc')
+    )
+
+    return onSnapshot(goalsQuery, async (snapshot) => {
+      try {
+        const goals: Goal[] = []
+        
+        for (const goalDoc of snapshot.docs) {
+          const goalData = goalDoc.data()
+          
+          // Get action steps for this goal with real-time listener
+          const actionStepsQuery = query(
+            collection(db, 'action_steps'),
+            where('goal_id', '==', goalDoc.id)
+          )
+          const actionStepsSnapshot = await getDocs(actionStepsQuery)
+          const action_steps = actionStepsSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            created_at: timestampToString(doc.data().created_at),
+            updated_at: timestampToString(doc.data().updated_at)
+          })) as ActionStep[]
+          
+          // Get completed dates for this goal with real-time listener
+          const completedDatesQuery = query(
+            collection(db, 'completed_dates'),
+            where('goal_id', '==', goalDoc.id)
+          )
+          const completedDatesSnapshot = await getDocs(completedDatesQuery)
+          const completed_dates = completedDatesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            created_at: timestampToString(doc.data().created_at)
+          })) as CompletedDate[]
+          
+          goals.push({
+            id: goalDoc.id,
+            ...goalData,
+            created_at: timestampToString(goalData.created_at),
+            updated_at: timestampToString(goalData.updated_at),
+            action_steps,
+            completed_dates
+          } as Goal)
+        }
+        
+        callback(goals)
+      } catch (error) {
+        console.error('Error in goals subscription:', error)
+      }
+    }, (error) => {
+      console.error('Error subscribing to goals:', error)
+    })
+  }
+
   // Get all goals for the authenticated user
   async getGoals(): Promise<Goal[]> {
     const user = auth.currentUser

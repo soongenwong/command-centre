@@ -22,5 +22,19 @@ export const auth: Auth = getAuth(app)
 // Initialize Cloud Firestore and get a reference to the service
 export const db: Firestore = getFirestore(app)
 
+// Enable offline persistence for instant updates
+if (typeof window !== 'undefined') {
+  // Enable offline persistence for better performance
+  import('firebase/firestore').then(({ enableIndexedDbPersistence }) => {
+    enableIndexedDbPersistence(db).catch((err) => {
+      if (err.code === 'failed-precondition') {
+        console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.')
+      } else if (err.code === 'unimplemented') {
+        console.warn('The current browser does not support all features required for persistence.')
+      }
+    })
+  })
+}
+
 // Initialize Analytics (only in browser)
 export const analytics: Analytics | null = typeof window !== 'undefined' ? getAnalytics(app) : null

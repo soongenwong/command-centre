@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -15,9 +15,8 @@ import { calculateStreak, formatDate } from '@/lib/utils'
 import { GoalsService, type Goal } from '@/lib/goalsService'
 
 export default function Dashboard() {
-  const { user, signOut } = useAuth()
+  const { user } = useAuth()
   const [goals, setGoals] = useState<Goal[]>([])
-  const [loading, setLoading] = useState(true)
   const [isCreateGoalOpen, setIsCreateGoalOpen] = useState(false)
   const [newGoal, setNewGoal] = useState({ title: '', description: '', target_date: '' })
   const [newActionStep, setNewActionStep] = useState<Record<string, { title: string, description: string }>>({})
@@ -25,51 +24,68 @@ export default function Dashboard() {
   
   const goalsService = useMemo(() => new GoalsService(), [])
 
-  const loadGoals = useCallback(async () => {
-    try {
-      setLoading(true)
-      const goalsData = await goalsService.getGoals()
-      setGoals(goalsData)
-    } catch (error) {
-      console.error('Error loading goals:', error)
-    } finally {
-      setLoading(false)
-    }
-  }, [goalsService])
-
-  // Load data on mount
+  // Subscribe to real-time goals updates instead of loading
   useEffect(() => {
-    if (user) {
-      loadGoals()
-    }
-  }, [user, loadGoals])
+    if (!user) return
+
+    const unsubscribe = goalsService.subscribeToGoals((goalsData) => {
+      setGoals(goalsData)
+    })
+
+    return () => unsubscribe()
+  }, [user, goalsService])
 
   const handleCreateGoal = async () => {
     if (!newGoal.title.trim()) return
 
+    // Optimistically add the goal to UI immediately
+    const tempGoal: Goal = {
+      id: `temp-${Date.now()}`,
+      user_id: user?.uid || '',
+      title: newGoal.title,
+      description: newGoal.description || null,
+      target_date: newGoal.target_date || null,
+      progress: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      action_steps: [],
+      completed_dates: []
+    }
+
+    setGoals(prev => [tempGoal, ...prev])
+    setNewGoal({ title: '', description: '', target_date: '' })
+    setIsCreateGoalOpen(false)
+
     try {
       console.log('Creating goal with user:', user?.uid)
-      const goal = await goalsService.createGoal({
+      await goalsService.createGoal({
         title: newGoal.title,
         description: newGoal.description,
         target_date: newGoal.target_date || undefined
       })
-
-      setGoals(prev => [...prev, goal])
-      setNewGoal({ title: '', description: '', target_date: '' })
-      setIsCreateGoalOpen(false)
+      // Real-time listener will update with actual data
     } catch (error) {
       console.error('Error creating goal:', error)
-      alert('Failed to create goal. Please check the console for details.')
+      // Revert optimistic update on error
+      setGoals(prev => prev.filter(goal => goal.id !== tempGoal.id))
+      alert('Failed to create goal. Please try again.')
     }
   }
 
   const handleDeleteGoal = async (goalId: string) => {
+    // Optimistically remove from UI immediately
+    const goalToDelete = goals.find(g => g.id === goalId)
+    setGoals(prev => prev.filter(goal => goal.id !== goalId))
+
     try {
       await goalsService.deleteGoal(goalId)
-      setGoals(prev => prev.filter(goal => goal.id !== goalId))
+      // Real-time listener will sync the actual state
     } catch (error) {
       console.error('Error deleting goal:', error)
+      // Revert optimistic update on error
+      if (goalToDelete) {
+        setGoals(prev => [...prev, goalToDelete])
+      }
     }
   }
 
@@ -77,36 +93,132 @@ export default function Dashboard() {
     const stepData = newActionStep[goalId]
     if (!stepData?.title.trim()) return
 
+    // Optimistically add action step to UI immediately
+    const tempActionStep = {
+      id: `temp-${Date.now()}`,
+      goal_id: goalId,
+      title: stepData.title,
+      completed: false,
+      completed_date: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+
+    setGoals(prev => prev.map(goal => {
+      if (goal.id === goalId) {
+        return {
+          ...goal,
+          action_steps: [...(goal.action_steps || []), tempActionStep]
+        }
+      }
+      return goal
+    }))
+
+    setNewActionStep(prev => ({ ...prev, [goalId]: { title: '', description: '' } }))
+    setIsAddingActionStep(prev => ({ ...prev, [goalId]: false }))
+
     try {
       await goalsService.createActionStep({
         goal_id: goalId,
         title: stepData.title
       })
-
-      // Reload goals to get updated data
-      await loadGoals()
-      setNewActionStep(prev => ({ ...prev, [goalId]: { title: '', description: '' } }))
-      setIsAddingActionStep(prev => ({ ...prev, [goalId]: false }))
+      // Real-time listener will update with actual data
     } catch (error) {
       console.error('Error adding action step:', error)
+      // Revert optimistic update on error
+      setGoals(prev => prev.map(goal => {
+        if (goal.id === goalId) {
+          return {
+            ...goal,
+            action_steps: goal.action_steps?.filter(step => step.id !== tempActionStep.id) || []
+          }
+        }
+        return goal
+      }))
     }
   }
 
   const handleToggleActionStep = async (goalId: string, actionStepId: string, completed: boolean) => {
+    // Optimistically update action step completion immediately
+    setGoals(prev => prev.map(goal => {
+      if (goal.id === goalId) {
+        return {
+          ...goal,
+          action_steps: goal.action_steps?.map(step => {
+            if (step.id === actionStepId) {
+              return {
+                ...step,
+                completed,
+                completed_date: completed ? new Date().toISOString() : null,
+                updated_at: new Date().toISOString()
+              }
+            }
+            return step
+          }) || []
+        }
+      }
+      return goal
+    }))
+
     try {
       await goalsService.toggleActionStep(actionStepId, completed)
-      await loadGoals() // Reload to get updated progress
+      // Real-time listener will sync the actual state
     } catch (error) {
       console.error('Error toggling action step:', error)
+      // Revert optimistic update on error - toggle back
+      setGoals(prev => prev.map(goal => {
+        if (goal.id === goalId) {
+          return {
+            ...goal,
+            action_steps: goal.action_steps?.map(step => {
+              if (step.id === actionStepId) {
+                return {
+                  ...step,
+                  completed: !completed,
+                  completed_date: !completed ? new Date().toISOString() : null
+                }
+              }
+              return step
+            }) || []
+          }
+        }
+        return goal
+      }))
     }
   }
 
   const handleDeleteActionStep = async (goalId: string, actionStepId: string) => {
+    // Optimistically remove action step from UI immediately
+    const goalToUpdate = goals.find(g => g.id === goalId)
+    const actionStepToDelete = goalToUpdate?.action_steps?.find(s => s.id === actionStepId)
+    
+    setGoals(prev => prev.map(goal => {
+      if (goal.id === goalId) {
+        return {
+          ...goal,
+          action_steps: goal.action_steps?.filter(step => step.id !== actionStepId) || []
+        }
+      }
+      return goal
+    }))
+
     try {
       await goalsService.deleteActionStep(actionStepId, goalId)
-      await loadGoals() // Reload to get updated data
+      // Real-time listener will sync the actual state
     } catch (error) {
       console.error('Error deleting action step:', error)
+      // Revert optimistic update on error
+      if (actionStepToDelete) {
+        setGoals(prev => prev.map(goal => {
+          if (goal.id === goalId) {
+            return {
+              ...goal,
+              action_steps: [...(goal.action_steps || []), actionStepToDelete]
+            }
+          }
+          return goal
+        }))
+      }
     }
   }
 
@@ -140,12 +252,27 @@ export default function Dashboard() {
       } else {
         await goalsService.addCompletedDate(goalId, today)
       }
-      // Reload in background to sync with server data
-      await loadGoals()
+      // Real-time listener will sync with server data
     } catch (error) {
       console.error('Error marking day:', error)
       // Revert the optimistic update on error
-      await loadGoals()
+      setGoals(prev => prev.map(g => {
+        if (g.id === goalId) {
+          const revertedCompletedDates = !alreadyMarked
+            ? g.completed_dates?.filter(cd => cd.completed_date.split('T')[0] !== today) || []
+            : [
+                ...(g.completed_dates || []),
+                {
+                  id: `temp-${Date.now()}`,
+                  goal_id: goalId,
+                  completed_date: today,
+                  created_at: new Date().toISOString()
+                }
+              ]
+          return { ...g, completed_dates: revertedCompletedDates }
+        }
+        return g
+      }))
     }
   }
 
@@ -169,18 +296,6 @@ export default function Dashboard() {
     calculateStreak(goal.completed_dates || []) > 0
   ).length
   const totalActionSteps = goals.reduce((total, goal) => total + (goal.action_steps?.length || 0), 0)
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-white flex items-center justify-center">
-        <div className="text-center">
-          <Target className="h-16 w-16 text-orange-600 mx-auto mb-4 animate-pulse" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Command Centre</h1>
-          <p className="text-gray-600">Loading your goals...</p>
-        </div>
-      </div>
-    )
-  }
 
   if (!user) {
     return (
