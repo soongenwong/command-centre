@@ -11,7 +11,9 @@ import {
   serverTimestamp,
   Timestamp,
   onSnapshot,
-  type Unsubscribe 
+  type Unsubscribe,
+  QuerySnapshot,
+  DocumentData
 } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
 
@@ -69,7 +71,7 @@ const timestampToString = (timestamp: Timestamp | null): string => {
 }
 
 export class GoalsService {
-  // Real-time listener for goals with optimistic updates
+  // Real-time listener for goals with offline-first approach
   subscribeToGoals(callback: (goals: Goal[]) => void): Unsubscribe {
     const user = auth.currentUser
     if (!user) throw new Error('User not authenticated')
@@ -80,19 +82,36 @@ export class GoalsService {
       orderBy('created_at', 'desc')
     )
 
-    return onSnapshot(goalsQuery, async (snapshot) => {
+    return onSnapshot(goalsQuery, async (snapshot: QuerySnapshot<DocumentData>) => {
       try {
-        const goals: Goal[] = []
+        // Log snapshot metadata to understand data source
+        console.log('Goals snapshot metadata:', {
+          hasPendingWrites: snapshot.metadata.hasPendingWrites,
+          fromCache: snapshot.metadata.fromCache
+        })
         
-        for (const goalDoc of snapshot.docs) {
+        // Process all goal documents in parallel for better performance
+        const goalPromises = snapshot.docs.map(async (goalDoc) => {
           const goalData = goalDoc.data()
           
-          // Get action steps for this goal with real-time listener
+          // Get action steps for this goal
           const actionStepsQuery = query(
             collection(db, 'action_steps'),
             where('goal_id', '==', goalDoc.id)
           )
-          const actionStepsSnapshot = await getDocs(actionStepsQuery)
+          
+          // Get completed dates for this goal
+          const completedDatesQuery = query(
+            collection(db, 'completed_dates'),
+            where('goal_id', '==', goalDoc.id)
+          )
+          
+          // Execute queries in parallel for better performance
+          const [actionStepsSnapshot, completedDatesSnapshot] = await Promise.all([
+            getDocs(actionStepsQuery),
+            getDocs(completedDatesQuery)
+          ])
+          
           const action_steps = actionStepsSnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data(),
@@ -100,35 +119,141 @@ export class GoalsService {
             updated_at: timestampToString(doc.data().updated_at)
           })) as ActionStep[]
           
-          // Get completed dates for this goal with real-time listener
-          const completedDatesQuery = query(
-            collection(db, 'completed_dates'),
-            where('goal_id', '==', goalDoc.id)
-          )
-          const completedDatesSnapshot = await getDocs(completedDatesQuery)
           const completed_dates = completedDatesSnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data(),
             created_at: timestampToString(doc.data().created_at)
           })) as CompletedDate[]
           
-          goals.push({
+          return {
             id: goalDoc.id,
             ...goalData,
             created_at: timestampToString(goalData.created_at),
             updated_at: timestampToString(goalData.updated_at),
             action_steps,
             completed_dates
-          } as Goal)
-        }
+          } as Goal
+        })
         
-        callback(goals)
+        const resolvedGoals = await Promise.all(goalPromises)
+        callback(resolvedGoals)
+        
+        console.log(`Loaded ${resolvedGoals.length} goals from ${snapshot.metadata.fromCache ? 'cache' : 'server'}`)
       } catch (error) {
         console.error('Error in goals subscription:', error)
+        // Don't throw error - let the app continue with empty array
+        callback([])
       }
     }, (error) => {
       console.error('Error subscribing to goals:', error)
+      // On error, provide empty array to prevent app crash
+      callback([])
     })
+  }
+
+  // Enhanced subscription that listens to all related collections in real-time
+  subscribeToAllGoalsData(callback: (goals: Goal[]) => void): Unsubscribe {
+    const user = auth.currentUser
+    if (!user) throw new Error('User not authenticated')
+
+    let goals: Goal[] = []
+    let actionSteps: { [goalId: string]: ActionStep[] } = {}
+    let completedDates: { [goalId: string]: CompletedDate[] } = {}
+
+    // Subscribe to goals
+    const goalsQuery = query(
+      collection(db, 'goals'),
+      where('user_id', '==', user.uid),
+      orderBy('created_at', 'desc')
+    )
+
+    // Subscribe to action steps
+    const actionStepsQuery = query(
+      collection(db, 'action_steps')
+    )
+
+    // Subscribe to completed dates  
+    const completedDatesQuery = query(
+      collection(db, 'completed_dates')
+    )
+
+    const combineAndCallback = () => {
+      const combinedGoals = goals.map(goal => ({
+        ...goal,
+        action_steps: actionSteps[goal.id] || [],
+        completed_dates: completedDates[goal.id] || []
+      }))
+      callback(combinedGoals)
+    }
+
+    // Goals subscription
+    const unsubscribeGoals = onSnapshot(goalsQuery, (snapshot) => {
+      console.log('Goals updated from', snapshot.metadata.fromCache ? 'cache' : 'server')
+      goals = snapshot.docs.map(doc => {
+        const data = doc.data()
+        return {
+          id: doc.id,
+          user_id: data.user_id,
+          title: data.title,
+          description: data.description,
+          target_date: data.target_date,
+          progress: data.progress,
+          created_at: timestampToString(data.created_at),
+          updated_at: timestampToString(data.updated_at),
+          action_steps: [],
+          completed_dates: []
+        } as Goal
+      })
+      combineAndCallback()
+    })
+
+    // Action steps subscription - filtered for user's goals
+    const unsubscribeActionSteps = onSnapshot(actionStepsQuery, (snapshot) => {
+      console.log('Action steps updated from', snapshot.metadata.fromCache ? 'cache' : 'server')
+      actionSteps = {}
+      snapshot.docs.forEach(doc => {
+        const data = doc.data()
+        const goalId = data.goal_id
+        // Only include action steps for goals that belong to current user
+        if (goals.some(goal => goal.id === goalId)) {
+          if (!actionSteps[goalId]) actionSteps[goalId] = []
+          actionSteps[goalId].push({
+            id: doc.id,
+            ...data,
+            created_at: timestampToString(data.created_at),
+            updated_at: timestampToString(data.updated_at)
+          } as ActionStep)
+        }
+      })
+      combineAndCallback()
+    })
+
+    // Completed dates subscription - filtered for user's goals
+    const unsubscribeCompletedDates = onSnapshot(completedDatesQuery, (snapshot) => {
+      console.log('Completed dates updated from', snapshot.metadata.fromCache ? 'cache' : 'server')
+      completedDates = {}
+      snapshot.docs.forEach(doc => {
+        const data = doc.data()
+        const goalId = data.goal_id
+        // Only include completed dates for goals that belong to current user
+        if (goals.some(goal => goal.id === goalId)) {
+          if (!completedDates[goalId]) completedDates[goalId] = []
+          completedDates[goalId].push({
+            id: doc.id,
+            ...data,
+            created_at: timestampToString(data.created_at)
+          } as CompletedDate)
+        }
+      })
+      combineAndCallback()
+    })
+
+    // Return combined unsubscribe function
+    return () => {
+      unsubscribeGoals()
+      unsubscribeActionSteps()
+      unsubscribeCompletedDates()
+    }
   }
 
   // Get all goals for the authenticated user

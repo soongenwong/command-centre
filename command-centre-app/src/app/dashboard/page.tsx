@@ -15,7 +15,7 @@ import { calculateStreak, formatDate } from '@/lib/utils'
 import { GoalsService, type Goal } from '@/lib/goalsService'
 
 export default function Dashboard() {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
   const [goals, setGoals] = useState<Goal[]>([])
   const [isCreateGoalOpen, setIsCreateGoalOpen] = useState(false)
   const [newGoal, setNewGoal] = useState({ title: '', description: '', target_date: '' })
@@ -24,15 +24,20 @@ export default function Dashboard() {
   
   const goalsService = useMemo(() => new GoalsService(), [])
 
-  // Subscribe to real-time goals updates instead of loading
+  // Subscribe to real-time goals updates with enhanced offline support
   useEffect(() => {
     if (!user) return
 
-    const unsubscribe = goalsService.subscribeToGoals((goalsData) => {
+    console.log('Setting up real-time subscription for user:', user.uid)
+    const unsubscribe = goalsService.subscribeToAllGoalsData((goalsData) => {
+      console.log('Received goals update:', goalsData.length, 'goals')
       setGoals(goalsData)
     })
 
-    return () => unsubscribe()
+    return () => {
+      console.log('Cleaning up goals subscription')
+      unsubscribe()
+    }
   }, [user, goalsService])
 
   const handleCreateGoal = async () => {
@@ -297,6 +302,20 @@ export default function Dashboard() {
   ).length
   const totalActionSteps = goals.reduce((total, goal) => total + (goal.action_steps?.length || 0), 0)
 
+  // Show loading screen while checking authentication
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-white flex items-center justify-center">
+        <div className="text-center">
+          <Target className="h-16 w-16 text-orange-600 mx-auto mb-4 animate-pulse" />
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Command Centre</h1>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Only show sign-in message if we're certain user is not authenticated
   if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-white flex items-center justify-center">

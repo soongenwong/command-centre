@@ -26,11 +26,19 @@ export const db: Firestore = getFirestore(app)
 if (typeof window !== 'undefined') {
   // Enable offline persistence for better performance
   import('firebase/firestore').then(({ enableIndexedDbPersistence }) => {
-    enableIndexedDbPersistence(db).catch((err) => {
+    enableIndexedDbPersistence(db, {
+      forceOwnership: false // Allow multiple tabs
+    }).then(() => {
+      console.log('Firebase offline persistence enabled successfully')
+    }).catch((err) => {
       if (err.code === 'failed-precondition') {
         console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.')
+        // Try to enable without forcing ownership
+        enableIndexedDbPersistence(db, { forceOwnership: false }).catch(console.warn)
       } else if (err.code === 'unimplemented') {
         console.warn('The current browser does not support all features required for persistence.')
+      } else {
+        console.warn('Failed to enable persistence:', err)
       }
     })
   })
