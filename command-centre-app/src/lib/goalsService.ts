@@ -151,111 +151,6 @@ export class GoalsService {
     })
   }
 
-  // Enhanced subscription that listens to all related collections in real-time
-  subscribeToAllGoalsData(callback: (goals: Goal[]) => void): Unsubscribe {
-    const user = auth.currentUser
-    if (!user) throw new Error('User not authenticated')
-
-    let goals: Goal[] = []
-    let actionSteps: { [goalId: string]: ActionStep[] } = {}
-    let completedDates: { [goalId: string]: CompletedDate[] } = {}
-
-    // Subscribe to goals
-    const goalsQuery = query(
-      collection(db, 'goals'),
-      where('user_id', '==', user.uid),
-      orderBy('created_at', 'desc')
-    )
-
-    // Subscribe to action steps
-    const actionStepsQuery = query(
-      collection(db, 'action_steps')
-    )
-
-    // Subscribe to completed dates  
-    const completedDatesQuery = query(
-      collection(db, 'completed_dates')
-    )
-
-    const combineAndCallback = () => {
-      const combinedGoals = goals.map(goal => ({
-        ...goal,
-        action_steps: actionSteps[goal.id] || [],
-        completed_dates: completedDates[goal.id] || []
-      }))
-      callback(combinedGoals)
-    }
-
-    // Goals subscription
-    const unsubscribeGoals = onSnapshot(goalsQuery, (snapshot) => {
-      console.log('Goals updated from', snapshot.metadata.fromCache ? 'cache' : 'server')
-      goals = snapshot.docs.map(doc => {
-        const data = doc.data()
-        return {
-          id: doc.id,
-          user_id: data.user_id,
-          title: data.title,
-          description: data.description,
-          target_date: data.target_date,
-          progress: data.progress,
-          created_at: timestampToString(data.created_at),
-          updated_at: timestampToString(data.updated_at),
-          action_steps: [],
-          completed_dates: []
-        } as Goal
-      })
-      combineAndCallback()
-    })
-
-    // Action steps subscription - filtered for user's goals
-    const unsubscribeActionSteps = onSnapshot(actionStepsQuery, (snapshot) => {
-      console.log('Action steps updated from', snapshot.metadata.fromCache ? 'cache' : 'server')
-      actionSteps = {}
-      snapshot.docs.forEach(doc => {
-        const data = doc.data()
-        const goalId = data.goal_id
-        // Only include action steps for goals that belong to current user
-        if (goals.some(goal => goal.id === goalId)) {
-          if (!actionSteps[goalId]) actionSteps[goalId] = []
-          actionSteps[goalId].push({
-            id: doc.id,
-            ...data,
-            created_at: timestampToString(data.created_at),
-            updated_at: timestampToString(data.updated_at)
-          } as ActionStep)
-        }
-      })
-      combineAndCallback()
-    })
-
-    // Completed dates subscription - filtered for user's goals
-    const unsubscribeCompletedDates = onSnapshot(completedDatesQuery, (snapshot) => {
-      console.log('Completed dates updated from', snapshot.metadata.fromCache ? 'cache' : 'server')
-      completedDates = {}
-      snapshot.docs.forEach(doc => {
-        const data = doc.data()
-        const goalId = data.goal_id
-        // Only include completed dates for goals that belong to current user
-        if (goals.some(goal => goal.id === goalId)) {
-          if (!completedDates[goalId]) completedDates[goalId] = []
-          completedDates[goalId].push({
-            id: doc.id,
-            ...data,
-            created_at: timestampToString(data.created_at)
-          } as CompletedDate)
-        }
-      })
-      combineAndCallback()
-    })
-
-    // Return combined unsubscribe function
-    return () => {
-      unsubscribeGoals()
-      unsubscribeActionSteps()
-      unsubscribeCompletedDates()
-    }
-  }
-
   // Get all goals for the authenticated user
   async getGoals(): Promise<Goal[]> {
     const user = auth.currentUser
@@ -489,6 +384,8 @@ export class GoalsService {
   // Add a completed date for streak tracking
   async addCompletedDate(goalId: string, date: string = new Date().toISOString().split('T')[0]): Promise<void> {
     try {
+      console.log('Adding completed date:', { goalId, date })
+      
       // Check if the date already exists to avoid duplicates
       const completedDatesQuery = query(
         collection(db, 'completed_dates'),
@@ -498,11 +395,14 @@ export class GoalsService {
       const snapshot = await getDocs(completedDatesQuery)
       
       if (snapshot.empty) {
-        await addDoc(collection(db, 'completed_dates'), {
+        const docRef = await addDoc(collection(db, 'completed_dates'), {
           goal_id: goalId,
           completed_date: date,
           created_at: serverTimestamp()
         })
+        console.log('Successfully added completed date:', docRef.id)
+      } else {
+        console.log('Completed date already exists, skipping')
       }
     } catch (error) {
       console.error('Error adding completed date:', error)
@@ -513,6 +413,8 @@ export class GoalsService {
   // Remove a completed date
   async removeCompletedDate(goalId: string, date: string): Promise<void> {
     try {
+      console.log('Removing completed date:', { goalId, date })
+      
       const completedDatesQuery = query(
         collection(db, 'completed_dates'),
         where('goal_id', '==', goalId),
@@ -522,6 +424,8 @@ export class GoalsService {
       
       const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref))
       await Promise.all(deletePromises)
+      
+      console.log('Successfully removed', snapshot.docs.length, 'completed date entries')
     } catch (error) {
       console.error('Error removing completed date:', error)
       throw error

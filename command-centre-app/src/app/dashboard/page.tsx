@@ -10,8 +10,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/components/providers/auth-provider'
-import { Plus, Target, Calendar, TrendingUp, CheckCircle2, Circle, Trash2, X } from 'lucide-react'
-import { calculateStreak, formatDate } from '@/lib/utils'
+import { Plus, Target, TrendingUp, CheckCircle2, Circle, Trash2, X } from 'lucide-react'
+import { calculateStreak, formatDate, getLongestStreak } from '@/lib/utils'
 import { GoalsService, type Goal } from '@/lib/goalsService'
 
 export default function Dashboard() {
@@ -29,7 +29,7 @@ export default function Dashboard() {
     if (!user) return
 
     console.log('Setting up real-time subscription for user:', user.uid)
-    const unsubscribe = goalsService.subscribeToAllGoalsData((goalsData) => {
+    const unsubscribe = goalsService.subscribeToGoals((goalsData) => {
       console.log('Received goals update:', goalsData.length, 'goals')
       setGoals(goalsData)
     })
@@ -232,6 +232,8 @@ export default function Dashboard() {
     const goal = goals.find(g => g.id === goalId)
     const alreadyMarked = goal?.completed_dates?.some(cd => cd.completed_date.split('T')[0] === today)
 
+    console.log('Daily check-in:', { goalId, today, alreadyMarked, currentStreak: calculateStreak(goal?.completed_dates || []) })
+
     // Optimistically update the UI immediately
     setGoals(prev => prev.map(g => {
       if (g.id === goalId) {
@@ -253,10 +255,13 @@ export default function Dashboard() {
 
     try {
       if (alreadyMarked) {
+        console.log('Removing completed date for:', goalId, today)
         await goalsService.removeCompletedDate(goalId, today)
       } else {
+        console.log('Adding completed date for:', goalId, today)
         await goalsService.addCompletedDate(goalId, today)
       }
+      console.log('Daily check-in completed successfully')
       // Real-time listener will sync with server data
     } catch (error) {
       console.error('Error marking day:', error)
@@ -300,7 +305,12 @@ export default function Dashboard() {
   const activeStreaks = goals.filter(goal => 
     calculateStreak(goal.completed_dates || []) > 0
   ).length
-  const totalActionSteps = goals.reduce((total, goal) => total + (goal.action_steps?.length || 0), 0)
+  
+  // Calculate maximum streak across all goals
+  const maxStreak = goals.reduce((max, goal) => {
+    const goalMaxStreak = getLongestStreak(goal.completed_dates || [])
+    return Math.max(max, goalMaxStreak)
+  }, 0)
 
   // Show loading screen while checking authentication
   if (loading) {
@@ -373,11 +383,12 @@ export default function Dashboard() {
           
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Action Steps</CardTitle>
-              <Calendar className="h-4 w-4 text-purple-600" />
+              <CardTitle className="text-sm font-medium">Max Streak</CardTitle>
+              <Target className="h-4 w-4 text-orange-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalActionSteps}</div>
+              <div className="text-2xl font-bold">{maxStreak}</div>
+              <p className="text-xs text-muted-foreground">Longest streak achieved</p>
             </CardContent>
           </Card>
         </div>

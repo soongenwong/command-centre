@@ -16,6 +16,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Command Centre - Goal Tracking Made Simple",
   description: "Transform your aspirations into achievements with our powerful goal tracking platform. Set targets, track progress, and maintain momentum with daily streaks.",
+  icons: {
+    icon: '/favicon.svg',
+    shortcut: '/favicon.svg',
+    apple: '/favicon.svg',
+  },
 };
 
 export default function RootLayout({
