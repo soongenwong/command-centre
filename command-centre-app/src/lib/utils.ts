@@ -102,3 +102,34 @@ export function isToday(date: Date | string): boolean {
     dateObj.getDate() === today.getDate()
   )
 }
+
+export function calculateDisplayStreak(completedDates: Array<{ completed_date: string }>): number {
+  if (completedDates.length === 0) return 0
+  
+  const dates = completedDates
+    .map(cd => new Date(cd.completed_date))
+    .sort((a, b) => b.getTime() - a.getTime())
+  
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+  
+  let streak = 0
+  let currentDate = new Date(yesterday) // Start from yesterday
+  
+  for (const date of dates) {
+    const checkDate = new Date(date)
+    checkDate.setHours(0, 0, 0, 0)
+    
+    if (checkDate.getTime() === currentDate.getTime()) {
+      streak++
+      currentDate = new Date(currentDate.getTime() - 24 * 60 * 60 * 1000) // Go back one day
+    } else if (checkDate.getTime() < currentDate.getTime()) {
+      break
+    }
+  }
+  
+  return streak
+}

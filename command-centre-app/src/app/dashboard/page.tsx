@@ -10,8 +10,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/components/providers/auth-provider'
-import { Plus, Target, TrendingUp, CheckCircle2, Circle, Trash2, X } from 'lucide-react'
-import { calculateStreak, formatDate, getLongestStreak } from '@/lib/utils'
+import { Plus, Target, TrendingUp, CheckCircle2, Circle, Trash2, X, Flame } from 'lucide-react'
+import { calculateStreak, formatDate, getLongestStreak, calculateDisplayStreak } from '@/lib/utils'
 import { GoalsService, type Goal } from '@/lib/goalsService'
 
 export default function Dashboard() {
@@ -303,7 +303,7 @@ export default function Dashboard() {
     goal.completed_dates?.some(cd => isToday(cd.completed_date))
   ).length
   const activeStreaks = goals.filter(goal => 
-    calculateStreak(goal.completed_dates || []) > 0
+    calculateDisplayStreak(goal.completed_dates || []) > 0
   ).length
   
   // Calculate maximum streak across all goals
@@ -466,7 +466,7 @@ export default function Dashboard() {
               const completedDates = goal.completed_dates || []
               const completedSteps = actionSteps.filter(step => step.completed).length
               const progress = calculateProgress(completedSteps, actionSteps.length)
-              const currentStreak = calculateStreak(completedDates)
+              const displayStreak = calculateDisplayStreak(completedDates)
               const markedToday = completedDates.some(cd => isToday(cd.completed_date))
 
               return (
@@ -511,8 +511,10 @@ export default function Dashboard() {
                     {/* Streak */}
                     <div className="flex justify-between items-center">
                       <div className="flex items-center space-x-2">
-                        <TrendingUp className="w-4 h-4 text-orange-600" />
-                        <span className="text-sm font-medium">{currentStreak} day streak</span>
+                        <Flame className={`w-4 h-4 ${markedToday ? 'text-orange-500 fill-orange-500' : 'text-gray-400'}`} />
+                        <span className="text-sm font-medium">
+                          {displayStreak === 0 ? 'Start your streak!' : `${displayStreak} day streak`}
+                        </span>
                       </div>
                       <Button
                         onClick={() => handleMarkDay(goal.id)}
