@@ -281,7 +281,13 @@ export default function Dashboard() {
     const goal = goals.find(g => g.id === goalId)
     const alreadyMarked = goal?.completed_dates?.some(cd => cd.completed_date.split('T')[0] === today)
 
-    console.log('Daily check-in:', { goalId, today, alreadyMarked, currentStreak: calculateStreak(goal?.completed_dates || []) })
+    console.log('Daily check-in:', { 
+      goalId, 
+      today, 
+      alreadyMarked, 
+      currentStreak: calculateStreak(goal?.completed_dates || []),
+      completedDates: goal?.completed_dates?.map(cd => cd.completed_date.split('T')[0])
+    })
 
     // Optimistically update the UI immediately
     setGoals(prev => prev.map(g => {
@@ -297,6 +303,10 @@ export default function Dashboard() {
                 created_at: new Date().toISOString()
               }
             ]
+        
+        const newStreak = calculateStreak(updatedCompletedDates)
+        console.log('After optimistic update - new streak:', newStreak)
+        
         return { ...g, completed_dates: updatedCompletedDates }
       }
       return g
@@ -362,10 +372,10 @@ export default function Dashboard() {
   const targetDate = new Date(TARGET_DATE)
   const daysUntilTarget = calculateDaysUntilTarget(targetDate)
   
-  // Calculate maximum streak across all goals
+  // Calculate maximum current active streak across all goals (not historical longest)
   const maxStreak = goals.reduce((max, goal) => {
-    const goalMaxStreak = getLongestStreak(goal.completed_dates || [])
-    return Math.max(max, goalMaxStreak)
+    const currentActiveStreak = calculateStreak(goal.completed_dates || [])
+    return Math.max(max, currentActiveStreak)
   }, 0)
 
   // Show loading screen while checking authentication
@@ -605,6 +615,13 @@ export default function Dashboard() {
               const progress = calculateProgress(completedSteps, actionSteps.length)
               const currentStreak = calculateStreak(completedDates) // Use actual current streak
               const markedToday = completedDates.some(cd => isToday(cd.completed_date))
+
+              // Debug logging
+              console.log(`Goal "${goal.title}" streak debug:`, {
+                currentStreak,
+                completedDates: completedDates.map(cd => cd.completed_date.split('T')[0]).sort(),
+                markedToday
+              })
 
               return (
                 <Card key={goal.id} className="hover:shadow-md transition-all duration-200 border-0 shadow-sm bg-white/80 backdrop-blur-sm">
