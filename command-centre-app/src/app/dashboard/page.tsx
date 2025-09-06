@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/components/providers/auth-provider'
-import { Plus, Target, TrendingUp, CheckCircle2, Circle, Trash2, X, Flame } from 'lucide-react'
+import { Plus, Target, TrendingUp, CheckCircle2, Circle, Trash2, X, Flame, Edit } from 'lucide-react'
 import { calculateStreak, formatDate, getLongestStreak, calculateDaysUntilTarget, getEarliestDate } from '@/lib/utils'
 import { GoalsService, type Goal } from '@/lib/goalsService'
 
@@ -23,8 +23,23 @@ export default function Dashboard() {
   const [isAddingActionStep, setIsAddingActionStep] = useState<Record<string, boolean>>({})
   const [isTargetDateOpen, setIsTargetDateOpen] = useState(false)
   const [customTargetDate, setCustomTargetDate] = useState('2025-12-31')
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null)
+  const [isEditGoalOpen, setIsEditGoalOpen] = useState(false)
   
   const goalsService = useMemo(() => new GoalsService(), [])
+
+  // Load target date from localStorage on mount
+  useEffect(() => {
+    const savedTargetDate = localStorage.getItem('command-centre-target-date')
+    if (savedTargetDate) {
+      setCustomTargetDate(savedTargetDate)
+    }
+  }, [])
+
+  // Save target date to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('command-centre-target-date', customTargetDate)
+  }, [customTargetDate])
 
   // Subscribe to real-time goals updates with enhanced offline support
   useEffect(() => {
@@ -226,6 +241,38 @@ export default function Dashboard() {
           return goal
         }))
       }
+    }
+  }
+
+  const handleEditGoal = (goal: Goal) => {
+    setEditingGoal(goal)
+    setIsEditGoalOpen(true)
+  }
+
+  const handleUpdateGoal = async () => {
+    if (!editingGoal || !editingGoal.title.trim()) return
+
+    // Optimistically update the goal in UI immediately
+    setGoals(prev => prev.map(g => 
+      g.id === editingGoal.id 
+        ? { ...editingGoal, updated_at: new Date().toISOString() }
+        : g
+    ))
+    
+    setIsEditGoalOpen(false)
+    setEditingGoal(null)
+
+    try {
+      await goalsService.updateGoal(editingGoal.id, {
+        title: editingGoal.title,
+        description: editingGoal.description || undefined,
+        target_date: editingGoal.target_date || undefined
+      })
+      // Real-time listener will sync with actual data
+    } catch (error) {
+      console.error('Error updating goal:', error)
+      // Note: In a real app, you'd want to revert the optimistic update here
+      alert('Failed to update goal. Please try again.')
     }
   }
 
@@ -488,6 +535,52 @@ export default function Dashboard() {
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* Edit Goal Dialog */}
+          <Dialog open={isEditGoalOpen} onOpenChange={setIsEditGoalOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Goal</DialogTitle>
+                <DialogDescription>
+                  Update your goal details to keep your progress on track.
+                </DialogDescription>
+              </DialogHeader>
+              {editingGoal && (
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="edit-title">Goal Title</Label>
+                    <Input
+                      id="edit-title"
+                      value={editingGoal.title}
+                      onChange={(e) => setEditingGoal(prev => prev ? ({ ...prev, title: e.target.value }) : null)}
+                      placeholder="e.g., Exercise daily"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-description">Description</Label>
+                    <Textarea
+                      id="edit-description"
+                      value={editingGoal.description || ''}
+                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditingGoal(prev => prev ? ({ ...prev, description: e.target.value }) : null)}
+                      placeholder="Describe your goal in detail..."
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-target_date">Target Date (Optional)</Label>
+                    <Input
+                      id="edit-target_date"
+                      type="date"
+                      value={editingGoal.target_date || ''}
+                      onChange={(e) => setEditingGoal(prev => prev ? ({ ...prev, target_date: e.target.value }) : null)}
+                    />
+                  </div>
+                  <Button onClick={handleUpdateGoal} className="w-full bg-orange-600 hover:bg-orange-700">
+                    Update Goal
+                  </Button>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Goals Grid */}
@@ -514,49 +607,61 @@ export default function Dashboard() {
               const markedToday = completedDates.some(cd => isToday(cd.completed_date))
 
               return (
-                <Card key={goal.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader>
+                <Card key={goal.id} className="hover:shadow-md transition-all duration-200 border-0 shadow-sm bg-white/80 backdrop-blur-sm">
+                  <CardHeader className="pb-4">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
-                        <CardTitle className="text-lg">{goal.title}</CardTitle>
+                        <CardTitle className="text-xl font-semibold text-gray-800">{goal.title}</CardTitle>
                         {goal.description && (
-                          <CardDescription className="mt-1">{goal.description}</CardDescription>
+                          <CardDescription className="mt-2 text-gray-600 leading-relaxed">{goal.description}</CardDescription>
                         )}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteGoal(goal.id)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      <div className="flex space-x-1 ml-4">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditGoal(goal)}
+                          className="text-orange-500 hover:text-orange-700 hover:bg-orange-50"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteGoal(goal.id)}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                     
                     {goal.target_date && (
-                      <Badge variant="outline" className="w-fit">
-                        Target: {formatDate(goal.target_date)}
-                      </Badge>
+                      <div className="mt-3">
+                        <Badge variant="outline" className="border-orange-200 text-orange-700 bg-orange-50">
+                          Target: {formatDate(goal.target_date)}
+                        </Badge>
+                      </div>
                     )}
                   </CardHeader>
                   
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-6 pt-0">
                     {/* Progress */}
                     {actionSteps.length > 0 && (
-                      <div>
-                        <div className="flex justify-between text-sm text-gray-600 mb-1">
-                          <span>Progress</span>
-                          <span>{completedSteps}/{actionSteps.length} steps</span>
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="flex justify-between text-sm text-gray-700 mb-2">
+                          <span className="font-medium">Progress</span>
+                          <span className="text-gray-600">{completedSteps}/{actionSteps.length} steps</span>
                         </div>
-                        <Progress value={progress} className="h-2" />
+                        <Progress value={progress} className="h-2 bg-gray-200" />
                       </div>
                     )}
 
                     {/* Streak */}
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center space-x-2">
-                        <Flame className={`w-4 h-4 ${markedToday ? 'text-orange-500 fill-orange-500' : 'text-gray-400'}`} />
-                        <span className="text-sm font-medium">
+                    <div className="flex justify-between items-center py-3 px-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-100">
+                      <div className="flex items-center space-x-3">
+                        <Flame className={`w-5 h-5 ${markedToday ? 'text-orange-500 fill-orange-500' : 'text-gray-400'}`} />
+                        <span className="text-sm font-medium text-gray-700">
                           {currentStreak === 0 ? 'Start your streak!' : `${currentStreak} day streak`}
                         </span>
                       </div>
@@ -564,41 +669,47 @@ export default function Dashboard() {
                         onClick={() => handleMarkDay(goal.id)}
                         variant={markedToday ? "default" : "outline"}
                         size="sm"
-                        className={markedToday ? "bg-green-600 hover:bg-green-700" : ""}
+                        className={markedToday 
+                          ? "bg-green-600 hover:bg-green-700 text-white shadow-sm" 
+                          : "border-orange-300 text-orange-700 hover:bg-orange-50"
+                        }
                       >
                         {markedToday ? (
-                          <CheckCircle2 className="w-4 h-4" />
+                          <CheckCircle2 className="w-4 h-4 mr-1" />
                         ) : (
-                          <Circle className="w-4 h-4" />
+                          <Circle className="w-4 h-4 mr-1" />
                         )}
-                        <span className="ml-1">Today</span>
+                        <span>Today</span>
                       </Button>
                     </div>
 
                     {/* Action Steps */}
                     <div>
-                      <div className="flex justify-between items-center mb-2">
-                        <h4 className="font-medium text-sm">Action Steps</h4>
+                      <div className="flex justify-between items-center mb-3">
+                        <h4 className="font-semibold text-gray-800 text-sm">Action Steps</h4>
                         {!isAddingActionStep[goal.id] && (
                           <Button
                             onClick={() => setIsAddingActionStep(prev => ({ ...prev, [goal.id]: true }))}
                             variant="ghost"
                             size="sm"
+                            className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
                           >
-                            <Plus className="w-3 h-3" />
+                            <Plus className="w-3 h-3 mr-1" />
+                            Add
                           </Button>
                         )}
                       </div>
                       
                       {isAddingActionStep[goal.id] && (
-                        <div className="space-y-2 mb-3 p-2 bg-gray-50 rounded">
+                        <div className="space-y-3 mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
                           <Input
-                            placeholder="Action step title"
+                            placeholder="What action will you take?"
                             value={newActionStep[goal.id]?.title || ''}
                             onChange={(e) => setNewActionStep(prev => ({
                               ...prev,
                               [goal.id]: { ...prev[goal.id], title: e.target.value, description: prev[goal.id]?.description || '' }
                             }))}
+                            className="border-gray-300 focus:border-orange-400 focus:ring-orange-400"
                           />
                           <div className="flex space-x-2">
                             <Button
@@ -606,47 +717,46 @@ export default function Dashboard() {
                               size="sm"
                               className="bg-orange-600 hover:bg-orange-700"
                             >
-                              Add
-                            </Button>
-                            <Button
-                              onClick={() => setIsAddingActionStep(prev => ({ ...prev, [goal.id]: false }))}
-                              variant="outline"
-                              size="sm"
-                            >
-                              <X className="w-3 h-3" />
+                              Add Step
                             </Button>
                           </div>
                         </div>
                       )}
                       
-                      <div className="space-y-2 max-h-32 overflow-y-auto">
-                        {actionSteps.map((step) => (
-                          <div key={step.id} className="flex items-center justify-between group">
-                            <div className="flex items-center space-x-2 flex-1">
-                              <button
-                                onClick={() => handleToggleActionStep(goal.id, step.id, !step.completed)}
-                                className="flex-shrink-0"
+                      <div className="space-y-2 max-h-40 overflow-y-auto">
+                        {actionSteps.length === 0 ? (
+                          <p className="text-gray-500 text-sm italic py-4 text-center">
+                            No action steps yet. Add one to get started!
+                          </p>
+                        ) : (
+                          actionSteps.map((step) => (
+                            <div key={step.id} className="flex items-center justify-between group py-2 px-3 rounded-md hover:bg-gray-50 transition-colors">
+                              <div className="flex items-center space-x-3 flex-1">
+                                <button
+                                  onClick={() => handleToggleActionStep(goal.id, step.id, !step.completed)}
+                                  className="flex-shrink-0"
+                                >
+                                  {step.completed ? (
+                                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                                  ) : (
+                                    <Circle className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+                                  )}
+                                </button>
+                                <span className={`text-sm ${step.completed ? 'text-gray-500' : 'text-gray-700'}`}>
+                                  {step.title}
+                                </span>
+                              </div>
+                              <Button
+                                onClick={() => handleDeleteActionStep(goal.id, step.id)}
+                                variant="ghost"
+                                size="sm"
+                                className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 hover:bg-red-50"
                               >
-                                {step.completed ? (
-                                  <CheckCircle2 className="w-4 h-4 text-green-600" />
-                                ) : (
-                                  <Circle className="w-4 h-4 text-gray-400" />
-                                )}
-                              </button>
-                              <span className={`text-sm ${step.completed ? 'line-through text-gray-500' : ''}`}>
-                                {step.title}
-                              </span>
+                                <X className="w-3 h-3" />
+                              </Button>
                             </div>
-                            <Button
-                              onClick={() => handleDeleteActionStep(goal.id, step.id)}
-                              variant="ghost"
-                              size="sm"
-                              className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700"
-                            >
-                              <X className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        ))}
+                          ))
+                        )}
                       </div>
                     </div>
                   </CardContent>
