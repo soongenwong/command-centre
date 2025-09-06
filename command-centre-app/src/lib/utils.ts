@@ -133,3 +133,22 @@ export function calculateDisplayStreak(completedDates: Array<{ completed_date: s
   
   return streak
 }
+
+export function calculateDaysUntilTarget(targetDate: Date | string): number {
+  const target = typeof targetDate === 'string' ? new Date(targetDate) : targetDate
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  target.setHours(0, 0, 0, 0)
+  
+  const diffMs = target.getTime() - today.getTime()
+  return Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+}
+
+export function getEarliestDate(dates: string[]): Date {
+  if (dates.length === 0) return new Date()
+  
+  return dates.reduce((earliest, dateStr) => {
+    const currentDate = new Date(dateStr)
+    return currentDate < earliest ? currentDate : earliest
+  }, new Date(dates[0]))
+}

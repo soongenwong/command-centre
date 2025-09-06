@@ -11,7 +11,7 @@ import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/components/providers/auth-provider'
 import { Plus, Target, TrendingUp, CheckCircle2, Circle, Trash2, X, Flame } from 'lucide-react'
-import { calculateStreak, formatDate, getLongestStreak, calculateDisplayStreak } from '@/lib/utils'
+import { calculateStreak, formatDate, getLongestStreak, calculateDaysUntilTarget, getEarliestDate } from '@/lib/utils'
 import { GoalsService, type Goal } from '@/lib/goalsService'
 
 export default function Dashboard() {
@@ -21,6 +21,8 @@ export default function Dashboard() {
   const [newGoal, setNewGoal] = useState({ title: '', description: '', target_date: '' })
   const [newActionStep, setNewActionStep] = useState<Record<string, { title: string, description: string }>>({})
   const [isAddingActionStep, setIsAddingActionStep] = useState<Record<string, boolean>>({})
+  const [isTargetDateOpen, setIsTargetDateOpen] = useState(false)
+  const [customTargetDate, setCustomTargetDate] = useState('2025-12-31')
   
   const goalsService = useMemo(() => new GoalsService(), [])
 
@@ -299,12 +301,19 @@ export default function Dashboard() {
 
   // Stats calculations
   const totalGoals = goals.length
-  const goalsCompletedToday = goals.filter(goal => 
-    goal.completed_dates?.some(cd => isToday(cd.completed_date))
-  ).length
-  const activeStreaks = goals.filter(goal => 
-    calculateDisplayStreak(goal.completed_dates || []) > 0
-  ).length
+  
+  // Calculate start date (earliest goal creation date)
+  const startDate = goals.length > 0 
+    ? getEarliestDate(goals.map(goal => goal.created_at))
+    : new Date()
+  
+  // ========== CONFIGURATION ==========
+  // Target date is now configurable via UI
+  const TARGET_DATE = customTargetDate // Format: YYYY-MM-DD
+  // ===================================
+  
+  const targetDate = new Date(TARGET_DATE)
+  const daysUntilTarget = calculateDaysUntilTarget(targetDate)
   
   // Calculate maximum streak across all goals
   const maxStreak = goals.reduce((max, goal) => {
@@ -353,6 +362,58 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Started</CardTitle>
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatDate(startDate)}</div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Days Until Target</CardTitle>
+              <TrendingUp className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <Dialog open={isTargetDateOpen} onOpenChange={setIsTargetDateOpen}>
+                <DialogTrigger asChild>
+                  <button className="text-left w-full hover:bg-gray-50 rounded p-1">
+                    <div className="text-2xl font-bold">{daysUntilTarget > 0 ? daysUntilTarget : 'Reached!'}</div>
+                    <p className="text-xs text-muted-foreground">Target: {formatDate(targetDate)}</p>
+                  </button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Set Target Date</DialogTitle>
+                    <DialogDescription>
+                      Choose your target date for the countdown.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="target-date">Target Date</Label>
+                      <Input
+                        id="target-date"
+                        type="date"
+                        value={customTargetDate}
+                        onChange={(e) => setCustomTargetDate(e.target.value)}
+                      />
+                    </div>
+                    <Button 
+                      onClick={() => setIsTargetDateOpen(false)} 
+                      className="w-full bg-orange-600 hover:bg-orange-700"
+                    >
+                      Update Target Date
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Goals</CardTitle>
               <Target className="h-4 w-4 text-orange-600" />
             </CardHeader>
@@ -363,31 +424,14 @@ export default function Dashboard() {
           
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Completed Today</CardTitle>
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{goalsCompletedToday}</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Streaks</CardTitle>
-              <TrendingUp className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{activeStreaks}</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Max Streak</CardTitle>
-              <Target className="h-4 w-4 text-orange-600" />
+              <Flame className="h-4 w-4 text-orange-500 fill-orange-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{maxStreak}</div>
+              <div className="flex items-center space-x-2">
+                <Flame className="h-6 w-6 text-orange-500 fill-orange-500" />
+                <div className="text-2xl font-bold text-orange-600">{maxStreak}</div>
+              </div>
               <p className="text-xs text-muted-foreground">Longest streak achieved</p>
             </CardContent>
           </Card>
@@ -466,7 +510,7 @@ export default function Dashboard() {
               const completedDates = goal.completed_dates || []
               const completedSteps = actionSteps.filter(step => step.completed).length
               const progress = calculateProgress(completedSteps, actionSteps.length)
-              const displayStreak = calculateDisplayStreak(completedDates)
+              const currentStreak = calculateStreak(completedDates) // Use actual current streak
               const markedToday = completedDates.some(cd => isToday(cd.completed_date))
 
               return (
@@ -513,7 +557,7 @@ export default function Dashboard() {
                       <div className="flex items-center space-x-2">
                         <Flame className={`w-4 h-4 ${markedToday ? 'text-orange-500 fill-orange-500' : 'text-gray-400'}`} />
                         <span className="text-sm font-medium">
-                          {displayStreak === 0 ? 'Start your streak!' : `${displayStreak} day streak`}
+                          {currentStreak === 0 ? 'Start your streak!' : `${currentStreak} day streak`}
                         </span>
                       </div>
                       <Button
