@@ -11,7 +11,7 @@ import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/components/providers/auth-provider'
 import { Plus, Target, TrendingUp, CheckCircle2, Circle, Trash2, X, Flame, Edit } from 'lucide-react'
-import { calculateStreak, formatDate, getLongestStreak, calculateDaysUntilTarget, getEarliestDate } from '@/lib/utils'
+import { calculateStreak, formatDate, calculateDaysUntilTarget, getEarliestDate } from '@/lib/utils'
 import { GoalsService, type Goal } from '@/lib/goalsService'
 import { AIAssistant } from '@/components/chat/ai-assistant'
 

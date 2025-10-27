@@ -66,10 +66,11 @@ Remember to:
     const response = chatCompletion.choices[0]?.message?.content || 'Sorry, I could not generate a response.'
 
     return NextResponse.json({ response })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error calling Groq API:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Failed to generate response'
     return NextResponse.json(
-      { error: error.message || 'Failed to generate response' },
+      { error: errorMessage },
       { status: 500 }
     )
   }
