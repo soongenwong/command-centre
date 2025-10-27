@@ -38,6 +38,7 @@ A modern, orange and white themed Next.js 14 template designed for building goal
 - **Action Steps**: Define and track actionable steps for each goal
 - **Streak Tracker**: Visual component showing current and longest streaks
 - **Progress Analytics**: Visual progress indicators and completion percentages
+- **AI Assistant**: Intelligent chatbot powered by Groq's Llama 3.1 that provides personalized insights, motivation, and next-step suggestions
 - **Centralized View**: All key metrics organized on a single dashboard
 - **Real-time Updates**: Changes sync instantly across all devices
 
@@ -65,18 +66,24 @@ yarn install
 ### 3. Environment Setup
 1. Copy the environment template:
 ```bash
-cp .env.example .env.local
+cp .env.local.template .env.local
 ```
 
 2. Configure your environment variables in `.env.local`:
 ```env
+# Firebase Configuration
 NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project-id.firebaseapp.com
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project-id.appspot.com
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
 NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
+
+# Groq AI API (for AI Assistant)
+GROQ_API_KEY=your-groq-api-key
 ```
+
+**Note**: See [AI_SETUP.md](AI_SETUP.md) for detailed instructions on setting up the AI Assistant with Groq API.
 
 ### 4. Firebase Setup
 Please see [FIREBASE_SETUP.md](FIREBASE_SETUP.md) for detailed Firebase configuration instructions.
